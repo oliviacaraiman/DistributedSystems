@@ -31,10 +31,9 @@ try:
         global board, node_id
         success = False
         try:
-            for e in board:
+            for e in board.values():
                 assert e != element                    
             board[entry_sequence] = element
-            #board = element
             success = True
         except AssertionError:
             print "Already exist element"
@@ -120,16 +119,14 @@ try:
         try:
             new_entry = request.forms.get('entry')
             entry_seq = len(board) + 1
-            add_new_element_to_store(entry_seq, new_entry) # you might want to change None here
-            # you should propagate something
+            new_elem = {entry_seq: new_entry}
+            add_new_element_to_store(entry_seq, new_entry) 
             # Please use threads to avoid blocking
             # thread = Thread(target=???,args=???)
-            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(entry_seq), json.dumps(board)))
+            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(entry_seq), json.dumps(new_elem)))
             thread.start()
             # you should create the thread as a deamon with thread.daemon = True
             # then call thread.start() to spawn the thread
-            #Propagate to other vessels
-            #propagate_to_vessels('/propagate/add/'+str(entry_seq), payload=board, req = 'POST')
             return True
         except Exception as e:
             print e
@@ -146,8 +143,8 @@ try:
         print "I am in propagation_received function"
         postdata=json.loads(request.body.read())
         print postdata
-	for element in postdata.values():
-        add_new_element_to_store(element_id, element)
+        for element in postdata.values():
+            add_new_element_to_store(element_id, element)
         # todo
         pass
         

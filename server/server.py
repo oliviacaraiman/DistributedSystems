@@ -124,7 +124,7 @@ try:
             # you should propagate something
             # Please use threads to avoid blocking
             # thread = Thread(target=???,args=???)
-            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(entry_seq), board))
+            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(entry_seq), json.dumps(board)))
             thread.start()
             # you should create the thread as a deamon with thread.daemon = True
             # then call thread.start() to spawn the thread
@@ -144,10 +144,10 @@ try:
     @app.post('/propagate/<action>/<element_id>')
     def propagation_received(action, element_id):
         print "I am in propagation_received function"
-        postdata=request.body.read()
+        postdata=json.loads(request.body.read())
         print postdata
-        element = postdata.split("=")
-        add_new_element_to_store(element_id, element[0])
+	for element in postdata.values():
+        add_new_element_to_store(element_id, element)
         # todo
         pass
         

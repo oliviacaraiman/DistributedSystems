@@ -17,10 +17,7 @@ import requests
 # ------------------------------------------------------------------------------------------------------
 try:
     app = Bottle()
-
-    #board = "nothing" 
     board = {}
-
 
     # ------------------------------------------------------------------------------------------------------
     # BOARD FUNCTIONS
@@ -31,21 +28,21 @@ try:
         global board, node_id
         success = False
         try:
-            for e in board.values():
-                assert e != element                    
-            board[entry_sequence] = element
+            if entry_sequence is None:                 
+                entry_sequence = 0
+                while (str(entry_sequence) in board):
+                    entry_sequence += 1
+            board[str(entry_sequence)] = element            
             success = True
-        except AssertionError:
-            print "Already exist element"
         except Exception as e:
             print e
-        return success
+        return entry_sequence
 
     def modify_element_in_store(entry_sequence, modified_element, is_propagated_call = False):
         global board, node_id
         success = False
         try:
-            board = modified_element
+            board[str(entry_sequence)] = modified_element
             success = True
         except Exception as e:
             print e
@@ -55,7 +52,7 @@ try:
         global board, node_id
         success = False
         try:
-            board = ""
+            del board[str(entry_sequence)]
             success = True
         except Exception as e:
             print e
@@ -102,7 +99,7 @@ try:
     @app.route('/')
     def index():
         global board, node_id
-        return template('server/index.tpl', board_title='Vessel {}'.format(node_id), board_dict=sorted(board.iteritems()), members_name_string='Lucas BERNEL')
+        return template('server/index.tpl', board_title='Vessel {}'.format(node_id), board_dict=sorted(board.iteritems()), members_name_string='Lucas BERNEL & Olivia CARAIMAN')
 
     @app.get('/board')
     def get_board():
@@ -118,15 +115,11 @@ try:
         global board, node_id
         try:
             new_entry = request.forms.get('entry')
-            entry_seq = len(board) + 1
-            new_elem = {entry_seq: new_entry}
-            add_new_element_to_store(entry_seq, new_entry) 
-            # Please use threads to avoid blocking
-            # thread = Thread(target=???,args=???)
-            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(entry_seq), json.dumps(new_elem)))
+            last_id = add_new_element_to_store(None, new_entry) 
+            
+            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(last_id), json.dumps(new_entry)))
+            thread.daemon = True
             thread.start()
-            # you should create the thread as a deamon with thread.daemon = True
-            # then call thread.start() to spawn the thread
             return True
         except Exception as e:
             print e
@@ -135,17 +128,33 @@ try:
     @app.post('/board/<element_id:int>/')
     def client_action_received(element_id):
         print "I am in client_action_received function"
-        # todo
+        element = request.forms.get('entry')
+        action = "modify"
+        if request.forms.get('delete') == str(1):
+            action = "delete"
+            delete_element_from_store(element_id)
+        elif action == "modify":
+            modify_element_in_store(element_id, element)
+        
+        thread = Thread(target=propagate_to_vessels, args=('/propagate/' + action + '/' + str(element_id), json.dumps(element)))
+        thread.daemon = True
+        thread.start()
         pass
 
     @app.post('/propagate/<action>/<element_id>')
     def propagation_received(action, element_id):
         print "I am in propagation_received function"
-        postdata=json.loads(request.body.read())
-        print postdata
-        for element in postdata.values():
+        element=json.loads(request.body.read())
+ 	print element
+        if str(action) == "add":
             add_new_element_to_store(element_id, element)
-        # todo
+        elif str(action) == "modify":
+            print "in modify"
+            print element
+            modify_element_in_store(element_id, element)
+        elif str(action) == "delete":
+            print "in delete"
+            delete_element_from_store(element_id)
         pass
         
     # ------------------------------------------------------------------------------------------------------

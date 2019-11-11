@@ -18,7 +18,6 @@ import requests
 try:
     app = Bottle()
     board = {}
-    last_id = 0
 
     # ------------------------------------------------------------------------------------------------------
     # BOARD FUNCTIONS
@@ -28,12 +27,16 @@ try:
         print "I am in the add_new_element_to_store function"
         global board, node_id
         success = False
-        try:                 
-            board[str(entry_sequence)] = element
+        try:
+            if entry_sequence is None:                 
+                entry_sequence = 0
+                while (str(entry_sequence) in board):
+                    entry_sequence += 1
+            board[str(entry_sequence)] = element            
             success = True
         except Exception as e:
             print e
-        return success
+        return entry_sequence
 
     def modify_element_in_store(entry_sequence, modified_element, is_propagated_call = False):
         global board, node_id
@@ -109,18 +112,14 @@ try:
         print "I am in client_add_received"
         '''Adds a new element to the board
         Called directly when a user is doing a POST request on /board'''
-        global board, node_id, last_id
+        global board, node_id
         try:
             new_entry = request.forms.get('entry')
-            last_id = last_id + 1
-            print last_id
-            add_new_element_to_store(last_id, new_entry) 
-            # Please use threads to avoid blocking
-            # thread = Thread(target=???,args=???)
+            last_id = add_new_element_to_store(None, new_entry) 
+            
             thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(last_id), json.dumps(new_entry)))
+            thread.daemon = True
             thread.start()
-            # you should create the thread as a deamon with thread.daemon = True
-            # then call thread.start() to spawn the thread
             return True
         except Exception as e:
             print e
@@ -138,7 +137,7 @@ try:
             modify_element_in_store(element_id, element)
         
         thread = Thread(target=propagate_to_vessels, args=('/propagate/' + action + '/' + str(element_id), json.dumps(element)))
-	thread.daemon = True
+        thread.daemon = True
         thread.start()
         pass
 

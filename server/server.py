@@ -28,13 +28,9 @@ try:
         print "I am in the add_new_element_to_store function"
         global board, node_id
         success = False
-        try:
-            for e in board.values():
-                assert e != element                    
+        try:                 
             board[str(entry_sequence)] = element
             success = True
-        except AssertionError:
-            print "Already exist element"
         except Exception as e:
             print e
         return success
@@ -142,6 +138,7 @@ try:
             modify_element_in_store(element_id, element)
         
         thread = Thread(target=propagate_to_vessels, args=('/propagate/' + action + '/' + str(element_id), json.dumps(element)))
+	thread.daemon = True
         thread.start()
         pass
 
@@ -149,7 +146,7 @@ try:
     def propagation_received(action, element_id):
         print "I am in propagation_received function"
         element=json.loads(request.body.read())
- 
+ 	print element
         if str(action) == "add":
             add_new_element_to_store(element_id, element)
         elif str(action) == "modify":

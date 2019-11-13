@@ -3,7 +3,7 @@
 # TDA596 - Lab 1
 # server/server.py
 # Input: Node_ID total_number_of_ID
-# Student: John Doe
+# Student: Olivia CARAIMAN & Lucas BERNEL
 # ------------------------------------------------------------------------------------------------------
 import traceback
 import sys
@@ -21,18 +21,19 @@ try:
 
     # ------------------------------------------------------------------------------------------------------
     # BOARD FUNCTIONS
-    # You will probably need to modify them
     # ------------------------------------------------------------------------------------------------------
     def add_new_element_to_store(entry_sequence, element, is_propagated_call=False):
         print "I am in the add_new_element_to_store function"
         global board, node_id
         success = False
         try:
+            # generate an id for an entry, by checking if the id doesn't already exist
             if entry_sequence is None:                 
                 entry_sequence = 0
                 while (str(entry_sequence) in board):
                     entry_sequence += 1
-            board[str(entry_sequence)] = element            
+            board[str(entry_sequence)] = element
+            print element            
             success = True
         except Exception as e:
             print e
@@ -94,8 +95,6 @@ try:
     # ------------------------------------------------------------------------------------------------------
     # ROUTES
     # ------------------------------------------------------------------------------------------------------
-    # a single example (index) for get, and one for post
-    # ------------------------------------------------------------------------------------------------------
     @app.route('/')
     def index():
         global board, node_id
@@ -129,6 +128,7 @@ try:
     def client_action_received(element_id):
         print "I am in client_action_received function"
         element = request.forms.get('entry')
+        # calls delete or modify methods depending on the action sent in request
         action = "modify"
         if request.forms.get('delete') == str(1):
             action = "delete"
@@ -145,15 +145,12 @@ try:
     def propagation_received(action, element_id):
         print "I am in propagation_received function"
         element=json.loads(request.body.read())
- 	print element
+        # calls add/modify/delete method depending on the parameter "action"
         if str(action) == "add":
             add_new_element_to_store(element_id, element)
         elif str(action) == "modify":
-            print "in modify"
-            print element
             modify_element_in_store(element_id, element)
         elif str(action) == "delete":
-            print "in delete"
             delete_element_from_store(element_id)
         pass
         

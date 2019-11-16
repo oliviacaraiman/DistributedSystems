@@ -1,3 +1,6 @@
+<div id="leader_placeholder">
+    <h4>Leader: {{leader}}</h4>
+</div>
 <!-- this place will show the actual contents of the blackboard. 
 It will be reloaded automatically from the server -->
 <div id="boardcontents_placeholder">

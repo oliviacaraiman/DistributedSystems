@@ -37,6 +37,15 @@ try:
     # BOARD FUNCTIONS
     # ------------------------------------------------------------------------------------------------------
     def add_new_element_to_store(entry_sequence, element, is_propagated_call=False):
+        """
+            Add a new element to the board
+
+            :param entry_sequence: Id unique on the board and one by element
+            :param element: An element 
+            :type entry_sequence: integer
+            :type element: String
+            :return: the entry sequence number 
+        """
         print "I am in the add_new_element_to_store function"
         global board, node_id
         success = False
@@ -54,6 +63,15 @@ try:
         return entry_sequence
 
     def modify_element_in_store(entry_sequence, modified_element, is_propagated_call = False):
+        """
+           Modify an element in the board
+            
+            :param entry_sequence: Id unique on the board and one by element
+            :param element: An element 
+            :type entry_sequence: integer
+            :type element: String
+            :return: boolean success 
+        """
         global board, node_id
         success = False
         try:
@@ -64,6 +82,13 @@ try:
         return success
 
     def delete_element_from_store(entry_sequence, is_propagated_call = False):
+        """
+            Delete an element in the board
+            
+            :param entry_sequence: Id unique on the board and one by element
+            :type entry_sequence: Integer
+            :return: boolean success 
+        """
         global board, node_id
         success = False
         try:
@@ -122,8 +147,11 @@ try:
     @app.post('/board')
     def client_add_received():
         print "I am in client_add_received"
-        '''Adds a new element to the board
-        Called directly when a user is doing a POST request on /board'''
+        """
+        Adds a new element to the board
+        Called directly when a user is doing a POST request on /board
+        :return: boolean
+        """
         global board, node_id
         try:
             new_entry = request.forms.get('entry')
@@ -139,6 +167,12 @@ try:
 
     @app.post('/board/<element_id:int>/')
     def client_action_received(element_id):
+        """
+            Receive the choosen action from the user. 
+            Execute this one and propagate to other vessels using propagate_to_vessel function
+            Called directly when a user is doing a POST request on /board/<element_id:int>/
+            :param element_id:Id of the element in the board to apply the action 
+        """
         print "I am in client_action_received function"
         element = request.forms.get('entry')
         # calls delete or modify methods depending on the action sent in request
@@ -156,6 +190,13 @@ try:
 
     @app.post('/propagate/<action>/<element_id>')
     def propagation_received(action, element_id):
+        """
+            Reception of a modification of the board from an other vessel. 
+            Update the board in function of the parameters
+            Called directly when a vessel send a POST request on /propagate/<action>/<element_id>
+            :param action: The choosen action delete or modify
+            :param element_id:Id of the element in the board to apply the action 
+        """
         print "I am in propagation_received function"
         element=json.loads(request.body.read())
         # calls add/modify/delete method depending on the parameter "action"

@@ -189,12 +189,22 @@ try:
             thread.daemon = True
             thread.start()
             return True
+        elif action == "modify":
+            #Here we need in the request body a String like "element_id,element" to be split beneath
+            jsonObject = json.loads(request.body.read())
+            element_id, element = jsonObject.split(',')
+            modify_element_in_store(element_id,element)
+            thread = Thread(target=propagate_to_vessels, args=('/propagate/modify/'+str(element_id), json.dumps(element)))
+            thread.daemon = True
+            thread.start()
+            return True
         elif action == "delete":
             id_element = json.loads(request.body.read())
             delete_element_from_store(id_element)
             thread = Thread(target=propagate_to_vessels, args=('/propagate/delete/'+str(id_element), json.dumps(id_element)))
             thread.daemon = True
             thread.start()
+            return True
 
 
     @app.post('/board/<element_id:int>/')
@@ -213,6 +223,7 @@ try:
         if request.forms.get('delete') == str(1):
             if leader == node_id:
                 #The deletion is done on the leader, so directly deleted and propagate
+                action = "delete"
                 delete_element_from_store(element_id)
                 thread = Thread(target=propagate_to_vessels, args=('/propagate/delete/'+str(element_id), json.dumps(element_id)))
                 thread.daemon = True
@@ -225,11 +236,19 @@ try:
                 thread.daemon = True
                 thread.start()
         elif action == "modify":
-            modify_element_in_store(element_id, element)
-        
-        #thread = Thread(target=propagate_to_vessels, args=('/propagate/' + action + '/' + str(element_id), json.dumps(element)))
-        #thread.daemon = True
-        #thread.start()
+            if leader == node_id:
+                #The deletion is done on the leader, so directly deleted and propagate
+                modify_element_in_store(element_id, element)
+                thread = Thread(target=propagate_to_vessels, args=('/propagate/modify/'+str(element_id), json.dumps(element)))
+                thread.daemon = True
+                thread.start()
+            else:
+                #The deletion is done on an other vessel, so we ride up the info to the leader
+                to_send = str(element_id) + "," + str(element)
+                leader_ip = vessel_list[str(leader)]
+                thread = Thread(target=contact_vessel, args=(leader_ip,'/board/update/modify', json.dumps(to_send)))
+                thread.daemon = True
+                thread.start()        
         pass
 
     @app.post('/propagate/<action>/<element_id>')

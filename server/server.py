@@ -155,7 +155,7 @@ try:
         global board, node_id, leader, vessel_list
         try:
             if node_id == leader:
-                #The leader add an entry, so it adds and progate
+                #The leader add an entry, so it adds it and progate
                 new_entry = request.forms.get('entry')
                 last_id = add_new_element_to_store(None, new_entry) 
                 
@@ -177,10 +177,11 @@ try:
     @app.post('/board/update/<action>')
     def receive_update_from_vessel(action):
         """
-            Receive all the update from other vessel
+            Receive all the update from other vessel and treat them 
             This function is used only by the leader 
-            :param action: To upload action on the board
+            :param action: Could be "add", "modify" and "delete". Correspond to the action we have to apply on the board
             :type action: String
+            :return: boolean
         """
         if action == "add":
             new_entry = json.loads(request.body.read())
@@ -214,6 +215,7 @@ try:
             Execute this one and propagate to other vessels using propagate_to_vessel function
             Called directly when a user is doing a POST request on /board/<element_id:int>/
             :param element_id:Id of the element in the board to apply the action 
+            :type element_id: Int
         """
         print "I am in client_action_received function"
         global leader, vessel_list, node_id
@@ -259,6 +261,8 @@ try:
             Called directly when a vessel send a POST request on /propagate/<action>/<element_id>
             :param action: The choosen action delete or modify
             :param element_id:Id of the element in the board to apply the action 
+            :type action: String
+            :type element_id: Int
         """
         print "I am in propagation_received function"
         element=json.loads(request.body.read())
@@ -273,6 +277,12 @@ try:
 
     @app.post('/propagate/<action>')
     def elect_leader(action):
+        """
+            Allow to elect a leader vessel to manage the centralized blackboard. This function use a ring algorithm to elect the leader.
+            The highest number is the leader
+            :param action: Could be "election" or "coordination". The first one allow to elect the leader. The second one allow to propagate the leader between every vessels
+            :type action: String
+        """
         print "I am in the elect_leader function"
         global election_msg, node_id, vessel_list, random_id, coordination_msg, leader_random, leader
         try:

@@ -152,18 +152,50 @@ try:
         Called directly when a user is doing a POST request on /board
         :return: boolean
         """
-        global board, node_id
+        global board, node_id, leader, vessel_list
         try:
-            new_entry = request.forms.get('entry')
+            if node_id == leader:
+                #The leader add an entry, so it adds and progate
+                new_entry = request.forms.get('entry')
+                last_id = add_new_element_to_store(None, new_entry) 
+                
+                thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(last_id), json.dumps(new_entry)))
+                thread.daemon = True
+                thread.start()
+                return True
+            else:
+                #An other vessel add an entry, ride up the entry to the leader
+                new_entry = request.forms.get('entry')
+                leader_ip = vessel_list[str(leader)]
+                thread = Thread(target=contact_vessel, args=(leader_ip,'/board/update/add', json.dumps(new_entry)))
+                thread.daemon = True
+                thread.start()
+                return True
+        except Exception as e:
+            print e
+        return False
+    @app.post('/board/update/<action>')
+    def receive_update_from_vessel(action):
+        """
+            Receive all the update from other vessel
+            This function is used only by the leader 
+            :param action: To upload action on the board
+            :type action: String
+        """
+        if action == "add":
+            new_entry = json.loads(request.body.read())
             last_id = add_new_element_to_store(None, new_entry) 
-            
             thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(last_id), json.dumps(new_entry)))
             thread.daemon = True
             thread.start()
             return True
-        except Exception as e:
-            print e
-        return False
+        elif action == "delete":
+            id_element = json.loads(request.body.read())
+            delete_element_from_store(id_element)
+            thread = Thread(target=propagate_to_vessels, args=('/propagate/delete/'+str(id_element), json.dumps(id_element)))
+            thread.daemon = True
+            thread.start()
+
 
     @app.post('/board/<element_id:int>/')
     def client_action_received(element_id):
@@ -174,18 +206,30 @@ try:
             :param element_id:Id of the element in the board to apply the action 
         """
         print "I am in client_action_received function"
+        global leader, vessel_list, node_id
         element = request.forms.get('entry')
         # calls delete or modify methods depending on the action sent in request
         action = "modify"
         if request.forms.get('delete') == str(1):
-            action = "delete"
-            delete_element_from_store(element_id)
+            if leader == node_id:
+                #The deletion is done on the leader, so directly deleted and propagate
+                delete_element_from_store(element_id)
+                thread = Thread(target=propagate_to_vessels, args=('/propagate/delete/'+str(element_id), json.dumps(element_id)))
+                thread.daemon = True
+                thread.start()
+            else:
+                #The deletion is done on an other vessel, so we ride up the info to the leader
+                action = "delete"
+                leader_ip = vessel_list[str(leader)]
+                thread = Thread(target=contact_vessel, args=(leader_ip,'/board/update/delete', json.dumps(element_id)))
+                thread.daemon = True
+                thread.start()
         elif action == "modify":
             modify_element_in_store(element_id, element)
         
-        thread = Thread(target=propagate_to_vessels, args=('/propagate/' + action + '/' + str(element_id), json.dumps(element)))
-        thread.daemon = True
-        thread.start()
+        #thread = Thread(target=propagate_to_vessels, args=('/propagate/' + action + '/' + str(element_id), json.dumps(element)))
+        #thread.daemon = True
+        #thread.start()
         pass
 
     @app.post('/propagate/<action>/<element_id>')

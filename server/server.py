@@ -13,8 +13,8 @@ import argparse
 from threading import Thread
 from random import randint
 
-from bottle import Bottle, run, request, template
-import requests
+from bottle import Bottle, run, request, template, response
+import requests 
 # ------------------------------------------------------------------------------------------------------
 try:
     board = {}
@@ -113,9 +113,11 @@ try:
             else:
                 print 'Non implemented feature!'
             # result is in res.text or res.json()
-            # print(res.text)
+            success = True
             if res.status_code == 200:
                 success = True
+        except requests.ConnectionError:
+            print "OOOOOOOOOOOOOKKK"
         except Exception as e:
             print e
         return success
@@ -136,13 +138,16 @@ try:
     @app.route('/')
     def index():
         global board, node_id, leader, leader_random
-        return template('server/index.tpl', leader=str(leader)+'; random id = '+str(leader_random), board_title='Vessel {}'.format(node_id)+' random_id: '+str(random_id), board_dict=sorted(board.iteritems()), members_name_string='Lucas BERNEL & Olivia CARAIMAN')
+        return template('server/index.tpl', leader=str(leader)+'; random id = '+str(leader_random), 
+            board_title='Vessel {}'.format(node_id)+' random_id: '+str(random_id), board_dict=sorted(board.iteritems()), 
+            members_name_string='Lucas BERNEL & Olivia CARAIMAN')
 
     @app.get('/board')
     def get_board():
         global board, node_id, leader, leader_random
         print board
-        return template('server/boardcontents_template.tpl',leader=str(leader)+'; random id = '+str(leader_random),board_title='Vessel {}'.format(node_id)+' random_id: '+str(random_id), board_dict=sorted(board.iteritems()))
+        return template('server/boardcontents_template.tpl',leader=str(leader)+'; random id = '+str(leader_random),
+            board_title='Vessel {}'.format(node_id)+' random_id: '+str(random_id), board_dict=sorted(board.iteritems()))
     # ------------------------------------------------------------------------------------------------------
     @app.post('/board')
     def client_add_received():
@@ -162,7 +167,7 @@ try:
                 thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(last_id), json.dumps(new_entry)))
                 thread.daemon = True
                 thread.start()
-                return True
+                return HTTPResponse(status=200)
             else:
                 #An other vessel add an entry, ride up the entry to the leader
                 new_entry = request.forms.get('entry')
@@ -170,7 +175,7 @@ try:
                 thread = Thread(target=contact_vessel, args=(leader_ip,'/board/update/add', json.dumps(new_entry)))
                 thread.daemon = True
                 thread.start()
-                return True
+                return HTTPResponse(status=200)
         except Exception as e:
             print e
         return False
@@ -239,13 +244,13 @@ try:
                 thread.start()
         elif action == "modify":
             if leader == node_id:
-                #The deletion is done on the leader, so directly deleted and propagate
+                #The modification is done on the leader, so directly deleted and propagate
                 modify_element_in_store(element_id, element)
                 thread = Thread(target=propagate_to_vessels, args=('/propagate/modify/'+str(element_id), json.dumps(element)))
                 thread.daemon = True
                 thread.start()
             else:
-                #The deletion is done on an other vessel, so we ride up the info to the leader
+                #The modification is done on an other vessel, so we ride up the info to the leader
                 to_send = str(element_id) + "," + str(element)
                 leader_ip = vessel_list[str(leader)]
                 thread = Thread(target=contact_vessel, args=(leader_ip,'/board/update/modify', json.dumps(to_send)))
@@ -313,6 +318,12 @@ try:
                         leader = node_id
                         action_todo = "coordination"
                 # propagate election message to successor
+                
+                """print test 
+                print vessel_ip
+                if test == False:
+                    vessel_ip = vessel_list[str((node_id + 1 % len(vessel_list)+1))]
+                    print vessel_ip """
                 thread = Thread(target=contact_vessel, args=(vessel_ip,'/propagate/' + action_todo, json.dumps(election_msg)))
                 thread.daemon = True
                 thread.start()
@@ -325,6 +336,8 @@ try:
                     leader_random = received_id_random
                     leader = int(json.loads(request.body.read())["leader"])
                     coordination_msg = {"leader_random" : leader_random, "leader":leader}
+                    #contact_vessel(vessel_ip,'/propagate/coordination'+ action_todo, json.dumps(coordination_msg))
+                    #    vessel_ip = vessel_list[str((node_id + 1 % len(vessel_list)+1))]
                     thread = Thread(target=contact_vessel, args=(vessel_ip,'/propagate/coordination', json.dumps(coordination_msg)))
                     thread.daemon = True
                     thread.start()

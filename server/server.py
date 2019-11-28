@@ -18,7 +18,6 @@ import requests
 # ------------------------------------------------------------------------------------------------------
 try:
     board = {}
-    new_election = False
     def init_app():
         def on_startup():
             global leader
@@ -113,15 +112,13 @@ try:
             else:
                 print 'Non implemented feature!'
             success = True
-            # result is in res.text or res.json()
-            # print(res.text)
             if res.status_code == 200:
                 success = True
         except Exception as e:
             success = False
             print e
-            return False
-        return success
+        finally:
+            return success
 
     def propagate_to_vessels(path, payload = None, req = 'POST'):
         print "I am in propagate_to_vessels function"
@@ -134,6 +131,12 @@ try:
                     print "\n\nCould not contact vessel {}\n\n".format(vessel_id)
 
     def propagate_to_successor(path, payload = None, req = 'POST' ):
+        """
+        This function allows to contact 2 neighbour after, if the 2 between are unreachable
+        This function is recursive, which means it continues untill we find someone reachable
+        :param path: The associate path to look into
+        :param payload: (Optional) Something to put in the body request
+        """
         global vessel_list, node_id
         print "I'm in propagate_to_successor function "
        
@@ -146,11 +149,20 @@ try:
             for some_id in vessel_list:
                 if vessel_list[some_id] == vessel_ip:
                     current_id = some_id
+                    print "Vessel ip " + str(vessel_ip)
+                    print "Node id " + str(node_id)
+                    print "Current id" + str(current_id)
         
             propagate_to_next_successor(path,current_id, payload, req) 
 
    
     def propagate_to_next_successor(path, neighbour_id, payload = None, req = 'POST' ): 
+        """
+        This function allows to contact the next neighbour if the one between is unreachable
+        :param path: The associate path to look into
+        :param neighbour_id: ID of the next vessel (in a ring structure)
+        :param payload: (Optional) Something to put in the body request
+        """
         global vessel_list
         
         vessel_ip = vessel_list[ str( int(neighbour_id) % len(vessel_list) + 1 ) ]
@@ -159,25 +171,36 @@ try:
             
         if not success:
             neighbour_id = int(neighbour_id) % len(vessel_list) + 1
-            propagate_to_next_neighbour(path,neighbour_id, payload, req)
+            propagate_to_next_successor(path,neighbour_id, payload, req)
 
     def propagate_to_leader(vessel_ip, path, payload = None, req = 'POST'):
-        global leader, election_msg, node_id, leader_random
+        """
+        This fonction is call by vessels to contact leader when there is a modification on the blackboard
+        This function allows to detect if the leader has crashed and to start new election
+        :param vessel_ip:IP adresse of the leader
+        :param path: The associate path (where in the leader)
+        :param payload: (Optional) Something to put in the body request
+        """
+        global leader, election_msg, node_id, leader_random, vessel_list
         print "I am in propagate_to_leader function"
         success = contact_vessel(vessel_ip, path, payload, req)
         if not success:
             print "Could not contact leader"
             election_msg = None
-            # node_id = 1
             leader_random = -1
             leader = None
-            propagate_to_vessels('propagate/initialize')
+            propagate_to_vessels('/propagate/initialize')
             elect_leader('election')
             #propagate to new leader
-            time.sleep(2)
+            #Wait for new leader
+            time.sleep(10)
             print "New leader elected "
             print leader
-            propagate_to_leader(leader, path, payload, req)
+            if leader == None:
+                time.sleep(10)
+            vessel_ip = vessel_list[str((leader % len(vessel_list)))]
+            print "leader IP" + str(vessel_ip)
+            propagate_to_leader(vessel_ip, path, payload, req)
 
     # ------------------------------------------------------------------------------------------------------
     # ROUTES
@@ -283,21 +306,21 @@ try:
                 #The deletion is done on an other vessel, so we ride up the info to the leader
                 action = "delete"
                 leader_ip = vessel_list[str(leader)]
-                thread = Thread(target=contact_vessel, args=(leader_ip,'/board/update/delete', json.dumps(element_id)))
+                thread = Thread(target=propagate_to_leader, args=(leader_ip,'/board/update/delete', json.dumps(element_id)))
                 thread.daemon = True
                 thread.start()
         elif action == "modify":
             if leader == node_id:
-                #The deletion is done on the leader, so directly deleted and propagate
+                #The modification is done on the leader, so directly deleted and propagate
                 modify_element_in_store(element_id, element)
                 thread = Thread(target=propagate_to_vessels, args=('/propagate/modify/'+str(element_id), json.dumps(element)))
                 thread.daemon = True
                 thread.start()
             else:
-                #The deletion is done on an other vessel, so we ride up the info to the leader
+                #The modification is done on an other vessel, so we ride up the info to the leader
                 to_send = str(element_id) + "," + str(element)
                 leader_ip = vessel_list[str(leader)]
-                thread = Thread(target=contact_vessel, args=(leader_ip,'/board/update/modify', json.dumps(to_send)))
+                thread = Thread(target=propagate_to_leader, args=(leader_ip,'/board/update/modify', json.dumps(to_send)))
                 thread.daemon = True
                 thread.start()        
         pass

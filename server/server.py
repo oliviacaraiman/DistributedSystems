@@ -18,7 +18,6 @@ import requests
 # ------------------------------------------------------------------------------------------------------
 try:
     board = {}
-
     def init_app():
         def on_startup():
             global leader
@@ -112,12 +111,15 @@ try:
                 res = requests.get('http://{}{}'.format(vessel_ip, path))
             else:
                 print 'Non implemented feature!'
+            success = True
             # result is in res.text or res.json()
             # print(res.text)
             if res.status_code == 200:
                 success = True
         except Exception as e:
+            success = False
             print e
+            return False
         return success
 
     def propagate_to_vessels(path, payload = None, req = 'POST'):
@@ -129,6 +131,67 @@ try:
                 success = contact_vessel(vessel_ip, path, payload, req)
                 if not success:
                     print "\n\nCould not contact vessel {}\n\n".format(vessel_id)
+
+    """def propagate_to_successor(path, payload = None, req = 'POST'):
+        global vessel_list, node_id, node
+        print "I am in propagate_to_successor function "
+
+        vessel_ip = vessel_list[str((int(node)) % len(vessel_list)+1)]
+        success = contact_vessel(vessel_ip, path, payload, req)
+        if not success:
+            node += 1;
+            print "\n\nCould not contact vessel {}\n\n".format(vessel_ip)
+            next_vessel_ip = vessel_list[str((int(node)) % len(vessel_list)+1)]
+            print "\n\Try contact vessel {}\n\n".format(next_vessel_ip)
+            print contact_vessel(next_vessel_ip, path, payload, req)
+            while contact_vessel(vessel_ip, path, payload, req) == False :
+                next_id += 1
+                vessel_ip = vessel_list[str(((next_id) % len(vessel_list)+1))]
+                print vessel_ip
+    """
+    def propagate_to_successor(path, payload = None, req = 'POST' ):
+        global vessel_list, node_id
+        print "I'm in propagate_to_successor function "
+       
+        vessel_ip = vessel_list[ str( (node_id) % len(vessel_list) + 1 )] 
+        success = contact_vessel(vessel_ip, path, payload, req) 
+            
+        if not success:
+            print 'We can`t propagate to the successor'
+            print vessel_ip
+            for some_id in vessel_list:
+                if vessel_list[some_id] == vessel_ip:
+                    current_id = some_id
+        
+            propagate_to_next_successor(path,current_id, payload, req) 
+
+   
+    def propagate_to_next_successor(path, neighbour_id, payload = None, req = 'POST' ): 
+        global vessel_list
+        
+        vessel_ip = vessel_list[ str( int(neighbour_id) % len(vessel_list) + 1 ) ]
+        
+        success = contact_vessel(vessel_ip, path, payload, req) 
+            
+        if not success:
+            neighbour_id = int(neighbour_id) % len(vessel_list) + 1
+            propagate_to_next_neighbour(path,neighbour_id, payload, req)
+
+    def propagate_to_leader(vessel_ip, path, payload = None, req = 'POST'):
+        global leader, election_msg, node_id, leader_random
+        print "I am in propagate_to_leader function"
+        success = contact_vessel(vessel_ip, path, payload, req)
+        if not success:
+            print "Could not contact leader"
+            election_msg = None
+            # node_id = 1
+            leader_random = -1
+            elect_leader('election')
+            #propagate to new leader
+            time.sleep(2)
+            print "New leader elected "
+            print leader
+            propagate_to_leader(leader, path, payload, req)
 
     # ------------------------------------------------------------------------------------------------------
     # ROUTES
@@ -167,7 +230,7 @@ try:
                 #An other vessel add an entry, ride up the entry to the leader
                 new_entry = request.forms.get('entry')
                 leader_ip = vessel_list[str(leader)]
-                thread = Thread(target=contact_vessel, args=(leader_ip,'/board/update/add', json.dumps(new_entry)))
+                thread = Thread(target=propagate_to_leader, args=(leader_ip,'/board/update/add', json.dumps(new_entry)))
                 thread.daemon = True
                 thread.start()
                 return True
@@ -313,7 +376,7 @@ try:
                         leader = node_id
                         action_todo = "coordination"
                 # propagate election message to successor
-                thread = Thread(target=contact_vessel, args=(vessel_ip,'/propagate/' + action_todo, json.dumps(election_msg)))
+                thread = Thread(target=propagate_to_successor, args=('/propagate/' + action_todo, json.dumps(election_msg)))
                 thread.daemon = True
                 thread.start()
 
@@ -325,7 +388,7 @@ try:
                     leader_random = received_id_random
                     leader = int(json.loads(request.body.read())["leader"])
                     coordination_msg = {"leader_random" : leader_random, "leader":leader}
-                    thread = Thread(target=contact_vessel, args=(vessel_ip,'/propagate/coordination', json.dumps(coordination_msg)))
+                    thread = Thread(target=propagate_to_successor, args=('/propagate/coordination', json.dumps(coordination_msg)))
                     thread.daemon = True
                     thread.start()
   
@@ -338,13 +401,14 @@ try:
     # ------------------------------------------------------------------------------------------------------
 
     def main():
-        global vessel_list, node_id, app, random_id, leader, leader_random, election_msg, coordination_msg
+        global vessel_list, node_id, app, random_id, leader, leader_random, election_msg, coordination_msg, node
         port = 80
         parser = argparse.ArgumentParser(description='Your own implementation of the distributed blackboard')
         parser.add_argument('--id', nargs='?', dest='nid', default=1, type=int, help='This server ID')
         parser.add_argument('--vessels', nargs='?', dest='nbv', default=1, type=int, help='The total number of vessels present in the system')
         args = parser.parse_args()
         node_id = args.nid
+        node = node_id
         vessel_list = dict()
         random_id = randint(0,1000)
         leader = 1 #by default server 1 will be the leader

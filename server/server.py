@@ -18,6 +18,7 @@ import requests
 # ------------------------------------------------------------------------------------------------------
 try:
     board = {}
+    new_election = False
     def init_app():
         def on_startup():
             global leader
@@ -132,23 +133,6 @@ try:
                 if not success:
                     print "\n\nCould not contact vessel {}\n\n".format(vessel_id)
 
-    """def propagate_to_successor(path, payload = None, req = 'POST'):
-        global vessel_list, node_id, node
-        print "I am in propagate_to_successor function "
-
-        vessel_ip = vessel_list[str((int(node)) % len(vessel_list)+1)]
-        success = contact_vessel(vessel_ip, path, payload, req)
-        if not success:
-            node += 1;
-            print "\n\nCould not contact vessel {}\n\n".format(vessel_ip)
-            next_vessel_ip = vessel_list[str((int(node)) % len(vessel_list)+1)]
-            print "\n\Try contact vessel {}\n\n".format(next_vessel_ip)
-            print contact_vessel(next_vessel_ip, path, payload, req)
-            while contact_vessel(vessel_ip, path, payload, req) == False :
-                next_id += 1
-                vessel_ip = vessel_list[str(((next_id) % len(vessel_list)+1))]
-                print vessel_ip
-    """
     def propagate_to_successor(path, payload = None, req = 'POST' ):
         global vessel_list, node_id
         print "I'm in propagate_to_successor function "
@@ -186,6 +170,8 @@ try:
             election_msg = None
             # node_id = 1
             leader_random = -1
+            leader = None
+            propagate_to_vessels('propagate/initialize')
             elect_leader('election')
             #propagate to new leader
             time.sleep(2)
@@ -338,6 +324,7 @@ try:
             delete_element_from_store(element_id)
         pass
 
+
     @app.post('/propagate/<action>')
     def elect_leader(action):
         """
@@ -353,7 +340,12 @@ try:
             # determine the successor ip by choosing the next neighbour in the vessel list
             vessel_ip = vessel_list[str((node_id % len(vessel_list)+1))]
 
-            if (action == "election"): 
+            if (action == "initialize"):
+                election_msg = None
+                leader_random = -1
+                leader = None
+
+            elif (action == "election"): 
                 print "in election"
 
                 action_todo = "election"

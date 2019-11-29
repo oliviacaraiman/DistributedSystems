@@ -144,14 +144,10 @@ try:
         success = contact_vessel(vessel_ip, path, payload, req) 
             
         if not success:
-            print 'We can`t propagate to the successor'
             print vessel_ip
-            for some_id in vessel_list:
-                if vessel_list[some_id] == vessel_ip:
-                    current_id = some_id
-                    print "Vessel ip " + str(vessel_ip)
-                    print "Node id " + str(node_id)
-                    print "Current id" + str(current_id)
+            for vessel_id in vessel_list:
+                if vessel_list[vessel_id] == vessel_ip:
+                    current_id = vessel_id
         
             propagate_to_next_successor(path,current_id, payload, req) 
 

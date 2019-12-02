@@ -18,6 +18,7 @@ import requests
 try:
     app = Bottle()
     board = {}
+    timestamp = 0
 
     # ------------------------------------------------------------------------------------------------------
     # BOARD FUNCTIONS
@@ -33,7 +34,7 @@ try:
             :return: the entry sequence number 
         """
         print "I am in the add_new_element_to_store function"
-        global board, node_id
+        global board, node_id, timestamp
         success = False
         try:
             # generate an id for an entry, by checking if the id doesn't already exist
@@ -42,6 +43,8 @@ try:
                 while (str(entry_sequence) in board):
                     entry_sequence += 1
             board[str(entry_sequence)] = element
+            timestamp += 1;
+
             print element            
             success = True
         except Exception as e:
@@ -139,12 +142,13 @@ try:
         Called directly when a user is doing a POST request on /board
         :return: boolean
         """
-        global board, node_id
+        global board, node_id, timestamp
         try:
             new_entry = request.forms.get('entry')
             last_id = add_new_element_to_store(None, new_entry) 
-            
-            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(last_id), json.dumps(new_entry)))
+            to_send = {"entry" : new_entry, "timestamp" : timestamp}
+
+            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(last_id), json.dumps(to_send)))
             thread.daemon = True
             thread.start()
             return True
@@ -186,9 +190,11 @@ try:
         """
         print "I am in propagation_received function"
         element=json.loads(request.body.read())
+        print element
+        print element["entry"]
         # calls add/modify/delete method depending on the parameter "action"
         if str(action) == "add":
-            add_new_element_to_store(element_id, element)
+            add_new_element_to_store(element_id, element["entry"])
         elif str(action) == "modify":
             modify_element_in_store(element_id, element)
         elif str(action) == "delete":
@@ -199,7 +205,7 @@ try:
     # EXECUTION
     # ------------------------------------------------------------------------------------------------------
     def main():
-        global vessel_list, node_id, app
+        global vessel_list, node_id, app, timestamp
 
         port = 80
         parser = argparse.ArgumentParser(description='Your own implementation of the distributed blackboard')

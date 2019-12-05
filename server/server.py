@@ -111,7 +111,7 @@ try:
         print "I am in propagate_to_vessels function"
         global vessel_list, node_id
         # add a sleep to simulate inconcistency
-        # time.sleep(10
+        # time.sleep(10)
         for vessel_id, vessel_ip in vessel_list.items():
             if int(vessel_id) != node_id: # don't propagate to yourself
                 success = contact_vessel(vessel_ip, path, payload, req)
@@ -125,16 +125,15 @@ try:
     @app.route('/')
     def index():
         global board, node_id
+        # sort by timestamp then node_id 
         sorted_board = sorted(board.iteritems(), key=lambda item:(int(item[0].split('-')[0]), int(item[0].split('-')[1])) );
-        # board_dict=sorted(board.iteritems())
         return template('server/index.tpl', board_title='Vessel {}'.format(node_id), board_dict=sorted_board, members_name_string='Lucas BERNEL & Olivia CARAIMAN')
 
     @app.get('/board')
     def get_board():
         global board, node_id
-        print board
+        # sort by timestamp then node_id 
         sorted_board = sorted(board.iteritems(), key=lambda item:(int(item[0].split('-')[0]), int(item[0].split('-')[1])) );
-        # sorted_board = 
         return template('server/boardcontents_template.tpl',board_title='Vessel {}'.format(node_id), board_dict=sorted_board)
     # ------------------------------------------------------------------------------------------------------
     @app.post('/board')

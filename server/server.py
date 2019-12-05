@@ -89,9 +89,12 @@ try:
     def add_to_queue(element_id, element = None): 
         # If element is None, the operation should be a delete, otherwise a modify
         global queue
+        print "\n \n \n I'm in add_to_queue function"
+        print "I'm in add_to_queue function"
+        print "I'm in add_to_queue function \n \n"
         try:
-            if element_id in queue:
-                queue[element_id] = element
+            queue[element_id] = element
+            print queue
         except Exception as e:
             print e
         pass
@@ -114,7 +117,7 @@ try:
     # ------------------------------------------------------------------------------------------------------
     def contact_vessel(vessel_ip, path, payload = None, req='POST'):
         # Try to contact another server (vessel) through a POST or GET, once
-        print "I am in contact_vessel function"
+        # print "I am in contact_vessel function"
         success = False
         try:
             if 'POST' in req:
@@ -135,7 +138,7 @@ try:
         print "I am in propagate_to_vessels function"
         global vessel_list, node_id
         # add a sleep to simulate inconcistency
-        # time.sleep(10)
+        time.sleep(20)
         for vessel_id, vessel_ip in vessel_list.items():
             if int(vessel_id) != node_id: # don't propagate to yourself
                 success = contact_vessel(vessel_ip, path, payload, req)
@@ -223,10 +226,9 @@ try:
 
         # calls add/modify/delete method depending on the parameter "action"
         if str(action) == "add":
+            add_new_element_to_store(element_id, element["entry"])
             if element_id in queue:
                 process_from_queue(element_id)
-            else:
-                add_new_element_to_store(element_id, element["entry"])
         elif str(action) == "modify":
             if element_id in board:
                 modify_element_in_store(element_id, element)

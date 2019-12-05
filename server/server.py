@@ -88,13 +88,16 @@ try:
 
     def add_to_queue(element_id, element = None): 
         # If element is None, the operation should be a delete, otherwise a modify
-        global queue
-        print "\n \n \n I'm in add_to_queue function"
+        global queue,board
+        # print "\n \n \n I'm in add_to_queue function"
         print "I'm in add_to_queue function"
-        print "I'm in add_to_queue function \n \n"
+        # print "I'm in add_to_queue function \n \n"
         try:
             queue[element_id] = element
+            print "QUEUE: "
             print queue
+            # print "BOARD: "
+            # print board
         except Exception as e:
             print e
         pass
@@ -143,7 +146,7 @@ try:
             if int(vessel_id) != node_id: # don't propagate to yourself
                 success = contact_vessel(vessel_ip, path, payload, req)
                 if not success:
-                    print "\n\nCould not contact vessel {}\n\n".format(vessel_id)
+                    print "Could not contact vessel {}".format(vessel_id)
 
 
     # ------------------------------------------------------------------------------------------------------
@@ -177,8 +180,7 @@ try:
             timestamp += 1;
             entry_sequence = str(timestamp) + "-" + str(node_id)
             add_new_element_to_store(entry_sequence, new_entry) 
-
-            to_send = {"entry" : new_entry, "timestamp" : timestamp, "id":node_id}
+            to_send = {"entry" : new_entry, "entry_sequence" : entry_sequence}
 
             thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(entry_sequence), json.dumps(to_send)))
             thread.daemon = True
@@ -230,12 +232,12 @@ try:
             if element_id in queue:
                 process_from_queue(element_id)
         elif str(action) == "modify":
-            if element_id in board:
+            if str(element_id) in board:
                 modify_element_in_store(element_id, element)
             else:
                 add_to_queue(element_id, element)
         elif str(action) == "delete":
-            if element_id in board:
+            if str(element_id) in board:
                 delete_element_from_store(element_id)
             else: 
                 add_to_queue(element_id)

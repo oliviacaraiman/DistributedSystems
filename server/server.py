@@ -43,8 +43,6 @@ try:
                 while (str(entry_sequence) in board):
                     entry_sequence += 1
             board[str(entry_sequence)] = element
-            timestamp += 1;
-
             print element            
             success = True
         except Exception as e:
@@ -112,7 +110,8 @@ try:
     def propagate_to_vessels(path, payload = None, req = 'POST'):
         print "I am in propagate_to_vessels function"
         global vessel_list, node_id
-
+        # add a sleep to simulate inconcistency
+        # time.sleep(10
         for vessel_id, vessel_ip in vessel_list.items():
             if int(vessel_id) != node_id: # don't propagate to yourself
                 success = contact_vessel(vessel_ip, path, payload, req)
@@ -126,13 +125,17 @@ try:
     @app.route('/')
     def index():
         global board, node_id
-        return template('server/index.tpl', board_title='Vessel {}'.format(node_id), board_dict=sorted(board.iteritems()), members_name_string='Lucas BERNEL & Olivia CARAIMAN')
+        sorted_board = sorted(board.iteritems(), key=lambda item:(int(item[0].split('-')[0]), int(item[0].split('-')[1])) );
+        # board_dict=sorted(board.iteritems())
+        return template('server/index.tpl', board_title='Vessel {}'.format(node_id), board_dict=sorted_board, members_name_string='Lucas BERNEL & Olivia CARAIMAN')
 
     @app.get('/board')
     def get_board():
         global board, node_id
         print board
-        return template('server/boardcontents_template.tpl',board_title='Vessel {}'.format(node_id), board_dict=sorted(board.iteritems()))
+        sorted_board = sorted(board.iteritems(), key=lambda item:(int(item[0].split('-')[0]), int(item[0].split('-')[1])) );
+        # sorted_board = 
+        return template('server/boardcontents_template.tpl',board_title='Vessel {}'.format(node_id), board_dict=sorted_board)
     # ------------------------------------------------------------------------------------------------------
     @app.post('/board')
     def client_add_received():
@@ -145,10 +148,13 @@ try:
         global board, node_id, timestamp
         try:
             new_entry = request.forms.get('entry')
-            last_id = add_new_element_to_store(None, new_entry) 
-            to_send = {"entry" : new_entry, "timestamp" : timestamp}
+            timestamp += 1;
+            entry_sequence = str(timestamp) + "-" + str(node_id)
+            add_new_element_to_store(entry_sequence, new_entry) 
 
-            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(last_id), json.dumps(to_send)))
+            to_send = {"entry" : new_entry, "timestamp" : timestamp, "id":node_id}
+
+            thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(entry_sequence), json.dumps(to_send)))
             thread.daemon = True
             thread.start()
             return True

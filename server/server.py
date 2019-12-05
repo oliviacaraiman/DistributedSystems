@@ -19,6 +19,7 @@ try:
     app = Bottle()
     board = {}
     timestamp = 0
+    queue = {}
 
     # ------------------------------------------------------------------------------------------------------
     # BOARD FUNCTIONS
@@ -84,6 +85,29 @@ try:
         except Exception as e:
             print e
         return success
+
+    def add_to_queue(element_id, element = None): 
+        # If element is None, the operation should be a delete, otherwise a modify
+        global queue
+        try:
+            if element_id in queue:
+                queue[element_id] = element
+        except Exception as e:
+            print e
+        pass
+
+    def process_from_queue(element_id):
+        global queue
+        try:
+            if queue[element_id] is None:
+                delete_element_from_store(element_id)
+            else: 
+                modify_element_in_store(element_id, queue[element_id])
+            del queue[element_id]
+
+        except Exception as e:
+            print e
+        pass
 
     # ------------------------------------------------------------------------------------------------------
     # DISTRIBUTED COMMUNICATIONS FUNCTIONS
@@ -161,7 +185,7 @@ try:
             print e
         return False
 
-    @app.post('/board/<element_id:int>/')
+    @app.post('/board/<element_id>/')
     def client_action_received(element_id):
         """
             Receive the choosen action from the user. 
@@ -193,17 +217,26 @@ try:
             :param action: The choosen action delete or modify
             :param element_id:Id of the element in the board to apply the action 
         """
+        global board, queue
         print "I am in propagation_received function"
         element=json.loads(request.body.read())
-        print element
-        print element["entry"]
+
         # calls add/modify/delete method depending on the parameter "action"
         if str(action) == "add":
-            add_new_element_to_store(element_id, element["entry"])
+            if element_id in queue:
+                process_from_queue(element_id)
+            else:
+                add_new_element_to_store(element_id, element["entry"])
         elif str(action) == "modify":
-            modify_element_in_store(element_id, element)
+            if element_id in board:
+                modify_element_in_store(element_id, element)
+            else:
+                add_to_queue(element_id, element)
         elif str(action) == "delete":
-            delete_element_from_store(element_id)
+            if element_id in board:
+                delete_element_from_store(element_id)
+            else: 
+                add_to_queue(element_id)
         pass
         
     # ------------------------------------------------------------------------------------------------------

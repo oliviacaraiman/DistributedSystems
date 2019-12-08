@@ -30,21 +30,21 @@ try:
 
             :param entry_sequence: Id unique on the board and one by element
             :param element: An element 
-            :type entry_sequence: integer
+            :type entry_sequence: String
             :type element: String
             :return: the entry sequence number 
         """
         print "I am in the add_new_element_to_store function"
-        global board, node_id, timestamp
+        global board, node_id
         success = False
         try:
-            # generate an id for an entry, by checking if the id doesn't already exist
+            # generate an id for an entry if it is None
             if entry_sequence is None:                 
                 entry_sequence = 0
                 while (str(entry_sequence) in board):
                     entry_sequence += 1
             board[str(entry_sequence)] = element
-            print element            
+                
             success = True
         except Exception as e:
             print e
@@ -74,7 +74,6 @@ try:
             Delete an element in the board
             
             :param entry_sequence: Id unique on the board and one by element
-            :type entry_sequence: Integer
             :return: boolean success 
         """
         global board, node_id
@@ -87,12 +86,16 @@ try:
         return success
 
     def add_to_queue(element_id, element = None): 
-        # If element is None, the operation should be a delete, otherwise a modify
+        """
+            Add an element to the queue, to be processed later
+            
+            :param element_id: Id unique on the board and one by element
+            :param element: value of element; None if the operation should be a delete. Otherwise it is a modify
+        """
         global queue,board
-        # print "\n \n \n I'm in add_to_queue function"
-        print "I'm in add_to_queue function"
-        # print "I'm in add_to_queue function \n \n"
+        print "I'm in add_to_queue function \n \n"
         try:
+            # replace the
             queue[element_id] = element
             print "QUEUE: "
             print queue
@@ -103,6 +106,11 @@ try:
         pass
 
     def process_from_queue(element_id):
+        """
+            Process an element(delete or modify) by updating the board and deleting it from the queue
+            
+            :param element_id: Id of the element to be updated
+        """
         global queue
         try:
             if queue[element_id] is None:
@@ -141,7 +149,7 @@ try:
         print "I am in propagate_to_vessels function"
         global vessel_list, node_id
         # add a sleep to simulate inconcistency
-        time.sleep(20)
+        #time.sleep(10)
         for vessel_id, vessel_ip in vessel_list.items():
             if int(vessel_id) != node_id: # don't propagate to yourself
                 success = contact_vessel(vessel_ip, path, payload, req)

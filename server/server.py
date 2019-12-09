@@ -210,10 +210,8 @@ try:
         action = "modify"
         if request.forms.get('delete') == str(1):
             action = "delete"
-            #delete_element_from_store(element_id)
             add_to_history(element_id, "delete", None, timestamp, node_id)
         elif action == "modify":
-            #modify_element_in_store(element_id, element)
             add_to_history(element_id, "modify", element, timestamp, node_id)
 
         to_send = {'element' : element, 'timestamp': timestamp, 'id' : node_id}

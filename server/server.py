@@ -19,7 +19,7 @@ try:
     app = Bottle()
     board = {}
     timestamp = 0
-    queue = {}
+    history = {}
 
     # ------------------------------------------------------------------------------------------------------
     # BOARD FUNCTIONS
@@ -85,40 +85,35 @@ try:
             print e
         return success
 
-    def add_to_queue(element_id, element = None): 
+    def add_to_history(element_id, action, element, timestamp, node_id): 
         """
             Add an element to the queue, to be processed later
             
             :param element_id: Id unique on the board and one by element
-            :param element: value of element; None if the operation should be a delete. Otherwise it is a modify
-        """
-        global queue,board
-        print "I'm in add_to_queue function \n \n"
-        try:
-            # replace the
-            queue[element_id] = element
-            print "QUEUE: "
-            print queue
-            # print "BOARD: "
-            # print board
-        except Exception as e:
-            print e
-        pass
+            :param action: action to be performed on the element (add/modify/delete)
 
-    def process_from_queue(element_id):
         """
-            Process an element(delete or modify) by updating the board and deleting it from the queue
-            
-            :param element_id: Id of the element to be updated
-        """
-        global queue
+        global history,board
+        print "I'm in add_to_history function \n \n"
         try:
-            if queue[element_id] is None:
-                delete_element_from_store(element_id)
-            else: 
-                modify_element_in_store(element_id, queue[element_id])
-            del queue[element_id]
-
+            # add new entry in the history
+            if action == 'add' or (element_id not in history) :
+                history[element_id] = [action, element, timestamp, node_id]
+            else:
+                if (history[element_id][2] < timestamp) or (history[element_id][2] == timestamp and history[element_id][3] > node_id):
+                    #update history with a more recent action
+                    history[element_id] = [action, element, timestamp, node_id]
+                    # execute action
+                    if (action == 'modify'):
+                        # if the last received action was 'delete' although a concurrent action was 'modify' keep the modify instead of delete
+                        if history[element_id][0] == 'delete':
+                            add_new_element_to_store(element_id, element)
+                        else:
+                            modify_element_in_store(element_id, element)
+                    elif (action == 'delete'):
+                        delete_element_from_store(element_id)
+            print "History: "
+            print history
         except Exception as e:
             print e
         pass
@@ -137,7 +132,6 @@ try:
                 res = requests.get('http://{}{}'.format(vessel_ip, path))
             else:
                 print 'Non implemented feature!'
-            # result is in res.text or res.json()
             print(res.text)
             if res.status_code == 200:
                 success = True
@@ -149,7 +143,7 @@ try:
         print "I am in propagate_to_vessels function"
         global vessel_list, node_id
         # add a sleep to simulate inconcistency
-        #time.sleep(10)
+        # time.sleep(10)
         for vessel_id, vessel_ip in vessel_list.items():
             if int(vessel_id) != node_id: # don't propagate to yourself
                 success = contact_vessel(vessel_ip, path, payload, req)
@@ -188,7 +182,8 @@ try:
             timestamp += 1;
             entry_sequence = str(timestamp) + "-" + str(node_id)
             add_new_element_to_store(entry_sequence, new_entry) 
-            to_send = {"entry" : new_entry, "entry_sequence" : entry_sequence}
+            add_to_history(entry_sequence, "add", new_entry, timestamp, node_id)
+            to_send = {"element" : new_entry, 'timestamp' : timestamp, "id" : node_id }
 
             thread = Thread(target=propagate_to_vessels, args=('/propagate/add/'+str(entry_sequence), json.dumps(to_send)))
             thread.daemon = True
@@ -206,17 +201,24 @@ try:
             Called directly when a user is doing a POST request on /board/<element_id:int>/
             :param element_id:Id of the element in the board to apply the action 
         """
+        global timestamp, node_id
         print "I am in client_action_received function"
         element = request.forms.get('entry')
         # calls delete or modify methods depending on the action sent in request
+        # update the timestamp
+        timestamp += 1
         action = "modify"
         if request.forms.get('delete') == str(1):
             action = "delete"
-            delete_element_from_store(element_id)
+            #delete_element_from_store(element_id)
+            add_to_history(element_id, "delete", None, timestamp, node_id)
         elif action == "modify":
-            modify_element_in_store(element_id, element)
+            #modify_element_in_store(element_id, element)
+            add_to_history(element_id, "modify", element, timestamp, node_id)
+
+        to_send = {'element' : element, 'timestamp': timestamp, 'id' : node_id}
         
-        thread = Thread(target=propagate_to_vessels, args=('/propagate/' + action + '/' + str(element_id), json.dumps(element)))
+        thread = Thread(target=propagate_to_vessels, args=('/propagate/' + action + '/' + str(element_id), json.dumps(to_send)))
         thread.daemon = True
         thread.start()
         pass
@@ -230,25 +232,25 @@ try:
             :param action: The choosen action delete or modify
             :param element_id:Id of the element in the board to apply the action 
         """
-        global board, queue
+        global board, history, timestamp
         print "I am in propagation_received function"
-        element=json.loads(request.body.read())
+
+        msg = json.loads(request.body.read())
+        element = msg["element"]
+        ts = msg["timestamp"]
+
+        # update the timestamp, should be the maximum between received and local
+        timestamp = max(timestamp, ts) + 1
+        server = msg["id"]
 
         # calls add/modify/delete method depending on the parameter "action"
         if str(action) == "add":
-            add_new_element_to_store(element_id, element["entry"])
-            if element_id in queue:
-                process_from_queue(element_id)
+            add_new_element_to_store(element_id, element)
+            add_to_history(element_id, "add", element, ts, server)
         elif str(action) == "modify":
-            if str(element_id) in board:
-                modify_element_in_store(element_id, element)
-            else:
-                add_to_queue(element_id, element)
+            add_to_history(element_id, "modify", element, ts, server)
         elif str(action) == "delete":
-            if str(element_id) in board:
-                delete_element_from_store(element_id)
-            else: 
-                add_to_queue(element_id)
+            add_to_history(element_id, "delete", None, ts, server)
         pass
         
     # ------------------------------------------------------------------------------------------------------
